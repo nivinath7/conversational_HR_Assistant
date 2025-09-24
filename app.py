@@ -102,7 +102,7 @@ def load_knowledge_base(_file_path):
 
 @st.cache_resource
 def create_vector_store(_text_chunks):
-    embeddings = OpenAIEmbeddings(openai_api_key=st.secrets["OPENAI_API_KEY"], openai_api_key=st.secrets["OPENAI_API_KEY"])
+    embeddings = OpenAIEmbeddings(openai_api_key=st.secrets["OPENAI_API_KEY"])
     vector_store = FAISS.from_texts(_text_chunks, embedding=embeddings)
     return vector_store
 
