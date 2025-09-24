@@ -3,6 +3,7 @@ import os
 from dotenv import load_dotenv
 from pypdf import PdfReader
 from utils import generate_follow_up_questions
+import json
 
 # --- LangChain Imports ---
 from langchain.text_splitter import RecursiveCharacterTextSplitter
@@ -16,34 +17,42 @@ from langchain.memory import ConversationBufferMemory
 load_dotenv()
 
 # --- Configurations ---
+
+# --- Configurations ---
 DOMAINS = {
     "Compensation & Performance": {
         "file": "compensation_performance.pdf",
+        "json_file": "compensation_performance.json", # <-- ADD THIS LINE
         "icon": "💰",
         "description": "Salary, performance reviews, and career growth"
     },
     "Onboarding Assistant": {
         "file": "onboarding_assistant.pdf",
+        "json_file": "onboarding_assistant.json", # <-- ADD THIS LINE
         "icon": "🚀",
         "description": "Welcome guide for new employees"
     },
     "Company Policies": {
         "file": "company_policies.pdf",
+        "json_file": "company_policies.json", # <-- ADD THIS LINE
         "icon": "📋",
         "description": "Work policies, leave, and guidelines"
     },
     "Offboarding & Exit Process": {
         "file": "offboarding_exit.pdf",
+        "json_file": "offboarding_exit.json", # <-- ADD THIS LINE
         "icon": "👋",
         "description": "Exit procedures and final settlements"
     },
     "Benefits & Eligibility": {
         "file": "benefits_eligibility.pdf",
+        "json_file": "benefits_eligibility.json", # <-- ADD THIS LINE
         "icon": "🏥",
         "description": "Healthcare, insurance, and employee benefits"
     },
     "Payroll & Compliance": {
         "file": "payroll_compliance.pdf",
+        "json_file": "payroll_compliance.json", # <-- ADD THIS LINE
         "icon": "📊",
         "description": "Payroll, taxes, and compliance matters"
     }
@@ -84,6 +93,26 @@ DOMAIN_QUESTIONS = {
 
 # --- Caching Functions ---
 @st.cache_data
+@st.cache_data
+def load_and_process_json(_file_path):
+    """Loads a JSON file and converts its key-value pairs into searchable sentences."""
+    if not os.path.exists(_file_path):
+        return "" # Return empty string if JSON file doesn't exist
+    
+    with open(_file_path, 'r') as f:
+        data = json.load(f)
+    
+    json_text = ""
+    for key, value in data.items():
+        formatted_key = key.replace('_', ' ')
+        if isinstance(value, dict):
+            for sub_key, sub_value in value.items():
+                json_text += f"Regarding {formatted_key}, the value for {sub_key.replace('_', ' ')} is {sub_value}. "
+        else:
+            json_text += f"The value for {formatted_key} is {value}. "
+            
+    return json_text
+    
 def load_knowledge_base(_file_path):
     reader = PdfReader(_file_path)
     text = ""
@@ -263,23 +292,61 @@ def reset_to_landing():
     if 'conversation_chain' in st.session_state:
         del st.session_state.conversation_chain
 
+# def select_domain(domain_name):
+#     """Handle domain selection"""
+#     st.session_state.selected_domain = domain_name
+#     st.session_state.messages = []
+#     st.session_state.follow_up_questions = []
+    
+#     # Load the knowledge base for the selected domain
+#     with st.spinner(f"Preparing '{domain_name}'..."):
+#         file_name = DOMAINS[domain_name]["file"]
+#         kb_path = os.path.join("knowledge_base", file_name)
+#         raw_text = load_knowledge_base(kb_path)
+#         text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
+#         text_chunks = text_splitter.split_text(raw_text)
+#         vector_store = create_vector_store(text_chunks)
+#         memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True, output_key='answer')
+#         st.session_state.conversation_chain = ConversationalRetrievalChain.from_llm(
+#             llm=ChatOpenAI(openai_api_key=st.secrets["OPENAI_API_KEY"], model_name="gpt-3.5-turbo"),
+#             retriever=vector_store.as_retriever(),
+#             memory=memory,
+#             return_source_documents=True
+#         )
+
 def select_domain(domain_name):
-    """Handle domain selection"""
+    """Handle domain selection, loading both PDF and JSON."""
     st.session_state.selected_domain = domain_name
     st.session_state.messages = []
     st.session_state.follow_up_questions = []
     
-    # Load the knowledge base for the selected domain
     with st.spinner(f"Preparing '{domain_name}'..."):
-        file_name = DOMAINS[domain_name]["file"]
-        kb_path = os.path.join("knowledge_base", file_name)
-        raw_text = load_knowledge_base(kb_path)
+        # --- START OF MODIFICATIONS ---
+        
+        # 1. Load PDF data
+        pdf_file_name = DOMAINS[domain_name]["file"]
+        pdf_path = os.path.join("knowledge_base", pdf_file_name)
+        pdf_text = load_knowledge_base(pdf_path)
+        
+        # 2. Load and process JSON data
+        json_file_name = DOMAINS[domain_name]["json_file"]
+        json_path = os.path.join("knowledge_base", json_file_name)
+        json_text = load_and_process_json(json_path)
+        
+        # 3. Combine text from both sources
+        combined_text = pdf_text + "\n\n" + json_text
+        
+        # 4. Chunk the COMBINED text
         text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
-        text_chunks = text_splitter.split_text(raw_text)
+        text_chunks = text_splitter.split_text(combined_text)
+        
+        # --- END OF MODIFICATIONS ---
+        
+        # The rest of the function proceeds as before
         vector_store = create_vector_store(text_chunks)
         memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True, output_key='answer')
         st.session_state.conversation_chain = ConversationalRetrievalChain.from_llm(
-            llm=ChatOpenAI(openai_api_key=st.secrets["OPENAI_API_KEY"], model_name="gpt-3.5-turbo"),
+            llm=ChatOpenAI(model_name="gpt-3.5-turbo"),
             retriever=vector_store.as_retriever(),
             memory=memory,
             return_source_documents=True
