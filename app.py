@@ -17,8 +17,6 @@ from langchain.memory import ConversationBufferMemory
 load_dotenv()
 
 # --- Configurations ---
-
-# --- Configurations ---
 DOMAINS = {
     "Compensation & Performance": {
         "file": "compensation_performance.pdf",
@@ -93,6 +91,21 @@ DOMAIN_QUESTIONS = {
 
 # --- Caching Functions ---
 @st.cache_data
+def load_knowledge_base(_file_path):
+    reader = PdfReader(_file_path)
+    text = ""
+    for page in reader.pages:
+        page_text = page.extract_text()
+        if page_text:
+            text += page_text
+    return text
+
+@st.cache_resource
+def create_vector_store(_text_chunks):
+    embeddings = OpenAIEmbeddings(openai_api_key=st.secrets["OPENAI_API_KEY"], openai_api_key=st.secrets["OPENAI_API_KEY"])
+    vector_store = FAISS.from_texts(_text_chunks, embedding=embeddings)
+    return vector_store
+
 @st.cache_data
 def load_and_process_json(_file_path):
     """Loads a JSON file and converts its key-value pairs into searchable sentences."""
@@ -112,21 +125,6 @@ def load_and_process_json(_file_path):
             json_text += f"The value for {formatted_key} is {value}. "
             
     return json_text
-    
-def load_knowledge_base(_file_path):
-    reader = PdfReader(_file_path)
-    text = ""
-    for page in reader.pages:
-        page_text = page.extract_text()
-        if page_text:
-            text += page_text
-    return text
-
-@st.cache_resource
-def create_vector_store(_text_chunks):
-    embeddings = OpenAIEmbeddings(openai_api_key=st.secrets["OPENAI_API_KEY"])
-    vector_store = FAISS.from_texts(_text_chunks, embedding=embeddings)
-    return vector_store
 
 # --- Main App Logic ---
 st.set_page_config(page_title="Optum HR Assistant", layout="wide")
@@ -308,12 +306,11 @@ def reset_to_landing():
 #         vector_store = create_vector_store(text_chunks)
 #         memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True, output_key='answer')
 #         st.session_state.conversation_chain = ConversationalRetrievalChain.from_llm(
-#             llm=ChatOpenAI(openai_api_key=st.secrets["OPENAI_API_KEY"], model_name="gpt-3.5-turbo"),
+#             llm=ChatOpenAI(model_name="gpt-3.5-turbo", openai_api_key=st.secrets["OPENAI_API_KEY"]),
 #             retriever=vector_store.as_retriever(),
 #             memory=memory,
 #             return_source_documents=True
 #         )
-
 def select_domain(domain_name):
     """Handle domain selection, loading both PDF and JSON."""
     st.session_state.selected_domain = domain_name
@@ -346,7 +343,7 @@ def select_domain(domain_name):
         vector_store = create_vector_store(text_chunks)
         memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True, output_key='answer')
         st.session_state.conversation_chain = ConversationalRetrievalChain.from_llm(
-            llm=ChatOpenAI(model_name="gpt-3.5-turbo"),
+            llm=ChatOpenAI(model_name="gpt-3.5-turbo", openai_api_key=st.secrets["OPENAI_API_KEY"]),
             retriever=vector_store.as_retriever(),
             memory=memory,
             return_source_documents=True
