@@ -279,7 +279,7 @@ def select_domain(domain_name):
         vector_store = create_vector_store(text_chunks)
         memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True, output_key='answer')
         st.session_state.conversation_chain = ConversationalRetrievalChain.from_llm(
-            llm=ChatOpenAI(model_name="gpt-3.5-turbo"),
+            llm=ChatOpenAI(openai_api_key='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', model_name="gpt-3.5-turbo"),
             retriever=vector_store.as_retriever(),
             memory=memory,
             return_source_documents=True
