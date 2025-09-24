@@ -95,7 +95,7 @@ def load_knowledge_base(_file_path):
 
 @st.cache_resource
 def create_vector_store(_text_chunks):
-    embeddings = OpenAIEmbeddings(openai_api_key='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')
+    embeddings = OpenAIEmbeddings(openai_api_key='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')
     vector_store = FAISS.from_texts(_text_chunks, embedding=embeddings)
     return vector_store
 
@@ -279,7 +279,7 @@ def select_domain(domain_name):
         vector_store = create_vector_store(text_chunks)
         memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True, output_key='answer')
         st.session_state.conversation_chain = ConversationalRetrievalChain.from_llm(
-            llm=ChatOpenAI(openai_api_key='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', model_name="gpt-3.5-turbo"),
+            llm=ChatOpenAI(openai_api_key='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', model_name="gpt-3.5-turbo"),
             retriever=vector_store.as_retriever(),
             memory=memory,
             return_source_documents=True
